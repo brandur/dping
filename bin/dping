@@ -1,0 +1,33 @@
+#!/usr/bin/env ruby
+
+require "fog"
+
+target_name = ARGV.first
+abort("Usage: dping <domain>") unless target_name
+
+pairs = File.read(ENV["HOME"] + "/.aws-credentials-master").split.map { |l|
+  l.split("=").map { |v| v.strip }
+}
+conf = Hash[pairs]
+
+id = conf["AWSAccessKeyId"] or abort("Need AWSAccessKeyId")
+secret = conf["AWSSecretKey"] or abort("Need AWSSecretKey")
+
+dns = Fog::DNS.new({
+  :provider              => 'AWS',
+  :aws_access_key_id     => id,
+  :aws_secret_access_key => secret
+})
+
+# get the zone by stripping the subdomain
+target_domain = target_name.split(".").reverse[0, 2].reverse.join(".")
+
+ip = Excon.get("https://icanhazip.com", expects: 200).body.strip
+
+zone = dns.zones.detect { |z| z.domain =~ /#{target_domain}\.?/ }
+abort("Zone not found") unless zone
+
+record = zone.records.detect { |r| r.name =~ /#{target_name}\.?/ }
+abort("Record not found") unless record
+
+record.modify(value: [ip])

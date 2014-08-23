@@ -11,5 +11,6 @@ Gem::Specification.new do |gem|
   gem.executables = %w(dping)
   gem.files = ["README.md"]
 
+  gem.add_dependency "excon", "~> 0.39", ">= 0.39.5"
   gem.add_dependency "fog", "~> 1.23", ">= 1.23.0"
 end

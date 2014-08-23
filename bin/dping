@@ -2,8 +2,16 @@
 
 require "fog"
 
+$verbose = false
+%w(-v --verbose).each { |f| $verbose ||= ARGV.delete(f) }
+
+def log(message)
+  puts(message) if $verbose
+end
+
 target_name = ARGV.first
 abort("Usage: dping <domain>") unless target_name
+log("Target name: #{target_name}")
 
 pairs = File.read(ENV["HOME"] + "/.aws-credentials-master").split.map { |l|
   l.split("=").map { |v| v.strip }
@@ -12,6 +20,7 @@ conf = Hash[pairs]
 
 id = conf["AWSAccessKeyId"] or abort("Need AWSAccessKeyId")
 secret = conf["AWSSecretKey"] or abort("Need AWSSecretKey")
+log("AWS access key ID: #{id}")
 
 dns = Fog::DNS.new({
   :provider              => 'AWS',
@@ -21,13 +30,17 @@ dns = Fog::DNS.new({
 
 # get the zone by stripping the subdomain
 target_domain = target_name.split(".").reverse[0, 2].reverse.join(".")
+log("Target zone: #{target_domain}")
 
 ip = Excon.get("https://icanhazip.com", expects: 200).body.strip
+log("IP: #{ip}")
 
 zone = dns.zones.detect { |z| z.domain =~ /#{target_domain}\.?/ }
 abort("Zone not found") unless zone
+log("Zone ID: #{zone.id}")
 
 record = zone.records.detect { |r| r.name =~ /#{target_name}\.?/ }
 abort("Record not found") unless record
 
 record.modify(value: [ip])
+log("Update successful")
